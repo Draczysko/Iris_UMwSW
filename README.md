@@ -3,7 +3,7 @@
 Najpierw clone repository
 wklejasz link: https://github.com/BAUZIK97/Iris_UMwSW
 
-i jak coś zmienisz to w source control wybiera się plik który został nadpisany
+i jak coś zmienisz to w source control wybiera się plik który został nadpisany i klikasz haczyk w VS code
 
 commit (plus informacja co zostało dodane)commit przygotowuje paczkę plików do wysłania
 
