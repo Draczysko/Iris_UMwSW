@@ -16,3 +16,5 @@ commit (plus informacja co zostało dodane)commit przygotowuje paczkę plików d
 push  (upload do repozytorium)
 
 Jak coś zostało zmienione przeze mnie to robi się pull
+
+fetch (sprawdza czy sa jakieś zmiany, ale nic samo nie pobiera, żeby pobrać trzeba zrobić pull)
