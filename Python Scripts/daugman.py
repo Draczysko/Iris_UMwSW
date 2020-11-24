@@ -28,7 +28,7 @@ def daugman(center: Tuple[int, int], start_r: int,
 
     # for every radius in range
     # we are presuming that iris will be no bigger than 1/3 of picture
-    for r in range(start_r, int(h / 3)):
+    for r in range(start_r, int(h / 2)):
         # draw circle on mask
         cv2.circle(mask, center, r, 255, 1)
         # get pixel from original image
@@ -54,7 +54,9 @@ def daugman(center: Tuple[int, int], start_r: int,
 
 
 def find_iris(gray: np.ndarray,
-              start_r: int) -> Tuple[Tuple[int, int], int]:
+              start_r: int,
+              Cx: int,
+              Cy: int) -> Tuple[Tuple[int, int], int, int, int]:
     """ Function will apply :mod:`daugman()` on every pixel
         in calculated image slice. Basically, we are calculating
         where lies set of valid circle centers.
@@ -66,11 +68,12 @@ def find_iris(gray: np.ndarray,
 
         :return: radius with biggest intensiveness delta on image as ``((xc, yc), radius)``
     """
-    _, s = gray.shape
+    # _, s = gray.shape     # ---> podmiana zmiennych
     # reduce step for better accuracy
     # 's/3' is the maximum radius of a daugman() search
-    a = range(0 + int(s / 3), s - int(s / 3), 3)
-    all_points = itertools.product(a, a)
+    a = range(Cx - 20, Cx + 20, 1)
+    b = range(Cy - 20, Cy + 20, 1)
+    all_points = itertools.product(a, b)
 
     values = []
     coords = []
