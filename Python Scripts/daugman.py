@@ -1,3 +1,4 @@
+#Dodaje komentarz na poczatku
 import cv2
 import numpy as np
 import itertools
