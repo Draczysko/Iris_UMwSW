@@ -16,7 +16,7 @@ def daugman_normalizaiton(image, height, width, r_in, r_out):
     thetas = np.arange(0, 2 * np.pi, 2 * np.pi / width)  # Theta values
     r_out = r_in + r_out
     # Create empty flatten image
-    flat = np.zeros((height,width, 3), np.uint8)
+    flat = np.zeros((height, width, 3), np.uint8)
     circle_x = int(image.shape[0] / 2)
     circle_y = int(image.shape[1] / 2)
 
@@ -53,7 +53,8 @@ def load_images(files):
 cur_path = "foty"
 files = []
 files.append(cur_path + "/Img_2_1_4.jpg")
-files.append(cur_path + "/Img_2_1_1.jpg")
+files.append(cur_path + "/Img_1_1_2.jpg")
+# files.append(cur_path + "/Img_2_1_1.jpg")
 # file = cur_path + "/064R_2.png"
 images = load_images(files)
 bows = []
@@ -62,26 +63,37 @@ for file in files:
     img = cv2.medianBlur(img, 5)
     cimg = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     circles = cv2.HoughCircles(img, cv2.HOUGH_GRADIENT_ALT, 1, 10, param1=100, param2=0.6, minRadius=100, maxRadius=0)
-    print(circles.shape)
+    # print(circles.shape)
     height, width = img.shape
     r = 0
     mask = np.zeros((height, width), np.uint8)
     for i in circles[0, :]:
-        print(i[2])
+        # print(i[2])
         cv2.circle(cimg, (i[0].astype(int), i[1].astype(int)), i[2].astype(int), (0, 0, 0))
         cv2.circle(mask, (i[0].astype(int), i[1].astype(int)), i[2].astype(int), (255, 255, 255), thickness=0)
         blank_image = cimg[:int(i[1]), :int(i[1])]
 
-        masked_data = cv2.bitwise_and(cimg, cimg, mask=mask)
-        _, thresh = cv2.threshold(mask, 1, 255, cv2.THRESH_BINARY)
-        contours = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        x, y, w, h = cv2.boundingRect(contours[0][0])
-        crop = masked_data[y:y+h, x:x+w]
+        # wycinanie oka
+        y0 = i[1].astype(int) - i[2].astype(int)
+        y1 = i[1].astype(int) + i[2].astype(int)
+        x0 = i[0].astype(int) - i[2].astype(int)
+        x1 = i[0].astype(int) + i[2].astype(int)
+        eye_img = cimg[y0:y1, x0:x1]
+        # print(eye_img.shape)
+
+        # masked_data = cv2.bitwise_and(cimg, cimg, mask=mask)
+        # _, thresh = cv2.threshold(mask, 1, 255, cv2.THRESH_BINARY)
+        # contours = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # x, y, w, h = cv2.boundingRect(contours[0][0])
+        # crop = masked_data[y:y+h, x:x+w]
         r = i[2]
     # cv2.imshow("edge", cimg)
     # cv2.waitKey(0)
-    print(cimg.shape)
-    image_nor = daugman_normalizaiton(cimg, 60, 360, r, 55)
+    # cv2.imshow("edge", eye_img)
+    # cv2.waitKey(0)
+    # print(cimg.shape)
+    image_nor = daugman_normalizaiton(cimg, 60, 360, 30, r)
+    # print(image_nor.shape)
     # cv2.imshow("edge", image_nor)
     # cv2.waitKey(0)
 
@@ -91,11 +103,17 @@ for file in files:
 
     # plt.imshow(image_nor)
     # plt.imshow(filtered_img)
-    cv2.imshow("edge", filtered_img)
+    # cv2.imshow("edge", filtered_img)
+    # cv2.waitKey(0)
+    cv2.imshow(' ', cimg)
     cv2.waitKey(0)
-
+    cv2.imshow(' ', image_nor)
+    cv2.waitKey(0)
+    cv2.imshow(' ', filtered_img)
+    cv2.waitKey(0)
     bows.append(filtered_img)
     h, w = g_kernel.shape[:2]
     g_kernel = cv2.resize(g_kernel, (3*w, 3*h), interpolation=cv2.INTER_CUBIC)
 
 print(distance.hamming(bows[0].ravel(), bows[1].ravel()))
+cv2.destroyAllWindows()
