@@ -1,20 +1,13 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import glob
-from skimage import io
-from skimage import data, color
-from skimage.transform import hough_circle, hough_circle_peaks
-from skimage.feature import canny
-from skimage.draw import circle_perimeter
-from skimage.util import img_as_ubyte
-import cv2
-import pandas as pd
+from cv2 import cv2
+from daugman import daugman
 from scipy.spatial import distance
+import itertools
 
 
 def daugman_normalizaiton(image, height, width, r_in, r_out):
     thetas = np.arange(0, 2 * np.pi, 2 * np.pi / width)  # Theta values
-    r_out = r_in + r_out
+    #r_out = r_in + r_out
     # Create empty flatten image
     flat = np.zeros((height, width, 3), np.uint8)
     circle_x = int(image.shape[0] / 2)
@@ -54,24 +47,88 @@ cur_path = "foty"
 files = []
 files.append(cur_path + "/Img_2_1_4.jpg")
 files.append(cur_path + "/Img_1_1_2.jpg")
-# files.append(cur_path + "/Img_2_1_1.jpg")
+# files.append(cur_path + "/Img_2_1_2.jpg")
+# files.append(cur_path + "/Img_2_1_3.jpg")
 # file = cur_path + "/064R_2.png"
+
 images = load_images(files)
 bows = []
+
+
+#----------------------------------------
+#-----------GŁÓWNA PĘTLA-----------------
+#----------------------------------------
+
 for file in files:
     img = cv2.imread(file, 0)
     img = cv2.medianBlur(img, 5)
-    cimg = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    circles = cv2.HoughCircles(img, cv2.HOUGH_GRADIENT_ALT, 1, 10, param1=100, param2=0.6, minRadius=100, maxRadius=0)
-    # print(circles.shape)
+
+
+    #Użycie adatptive threshold dla pozbycia się zbędnych wartości piskeli
+
+    th1 = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                             cv2.THRESH_BINARY, 35, 5)
+    cv2.imshow(' ', th1)
+    #cv2.waitKey(0)
+
+
+    # Zamkniecie i otwracie usuwa większąść szumu, lepiej widać zarys oka
+
+    morph = cv2.morphologyEx(th1, cv2.MORPH_OPEN, cv2.getStructuringElement(2, (5, 5)))
+    cv2.imshow(' ', morph)
+   # cv2.waitKey(0)
+
+    morph = cv2.morphologyEx(morph, cv2.MORPH_CLOSE, cv2.getStructuringElement(2, (3, 3)))
+    cv2.imshow(' ', morph)
+   # cv2.waitKey(0)
+
+    # Po morfologii ładnie widać zarys źrenicy, wykorzystuje to do znalezienia jej przez Hough'a. 
+    # Po odpowiednim dostosowaniu paramterów nawet ładnie działa.
+
+    cimg = img.copy()
+
+    # Wbudowana funkcja Hougha do znajdowania okręgów
+
+    circles = cv2.HoughCircles(morph, cv2.HOUGH_GRADIENT_ALT, 2.5, 50, param1=100, param2=0.6, minRadius=25, maxRadius=60)
+   
     height, width = img.shape
     r = 0
     mask = np.zeros((height, width), np.uint8)
+
     for i in circles[0, :]:
         # print(i[2])
-        cv2.circle(cimg, (i[0].astype(int), i[1].astype(int)), i[2].astype(int), (0, 0, 0))
-        cv2.circle(mask, (i[0].astype(int), i[1].astype(int)), i[2].astype(int), (255, 255, 255), thickness=0)
+        cv2.circle(cimg, (i[0].astype(int), i[1].astype(int)), i[2].astype(int), (0, 0, 0), 3)
+        cv2.circle(mask, (i[0].astype(int), i[1].astype(int)), i[2].astype(int), (255, 255, 255), thickness=3)
         blank_image = cimg[:int(i[1]), :int(i[1])]
+
+        # Jeżeli znalazł źrenicę wykorzystuje Daugmana żeby znaleść zarys tęczówki. 
+        # Działa dobrze jeżeli znamy prawdopodobny środek i promień. (Jest mocno obliczenio żerny)
+
+        Cx = i[0].astype(int)
+        Cy = i[1].astype(int)
+        start_r = 90
+
+        a = range(Cx - 4, Cx + 4, 2)
+        b = range(Cy - 4, Cy + 4, 2)
+        all_points = itertools.product(a, b)
+
+        values = []
+        coords = []
+
+        
+        for p in all_points:
+            tmp = daugman(p, start_r, img)
+            if tmp is not None:
+                val, circle = tmp
+                values.append(val)
+                coords.append(circle)
+
+        #return the radius with biggest intensiveness delta on image
+        #((xc, yc), radius)
+        #x10 faster than coords[np.argmax(values)]
+        center, radius = coords[values.index(max(values))]
+
+        cv2.circle(cimg, center, radius, (0, 0, 0), 3)
 
         # wycinanie oka
         y0 = i[1].astype(int) - i[2].astype(int)
@@ -79,6 +136,8 @@ for file in files:
         x0 = i[0].astype(int) - i[2].astype(int)
         x1 = i[0].astype(int) + i[2].astype(int)
         eye_img = cimg[y0:y1, x0:x1]
+        
+
         # print(eye_img.shape)
 
         # masked_data = cv2.bitwise_and(cimg, cimg, mask=mask)
@@ -86,34 +145,64 @@ for file in files:
         # contours = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         # x, y, w, h = cv2.boundingRect(contours[0][0])
         # crop = masked_data[y:y+h, x:x+w]
-        r = i[2]
+        r = i[2].astype(int)
+        #r2 = j[2]
     # cv2.imshow("edge", cimg)
     # cv2.waitKey(0)
     # cv2.imshow("edge", eye_img)
     # cv2.waitKey(0)
     # print(cimg.shape)
-    image_nor = daugman_normalizaiton(cimg, 60, 360, 30, r)
+
+    #tworzenie wstęgi ze znalezionej tęczówki
+    image_nor = daugman_normalizaiton(img, 90, 360, r, radius)
     # print(image_nor.shape)
     # cv2.imshow("edge", image_nor)
     # cv2.waitKey(0)
 
     #retval = cv.getGaborKernel(ksize, sigma, theta, lambd, gamma[, psi[, ktype]]    )
-    g_kernel = cv2.getGaborKernel((27, 27), 8.0, np.pi/4, 10.0, 0.8, 0, ktype=cv2.CV_32F)
-    filtered_img = cv2.filter2D(image_nor, cv2.CV_8UC3, g_kernel)
+
+
+    #kilkuktrona filtracja
+    As = [0,30,60,90,120,150]
+
+    for i, A in enumerate(As):
+
+        g_kernel = cv2.getGaborKernel((27, 27), 6.0, np.pi*A/180, 8.0, 0.8, 0, ktype=cv2.CV_32F)
+        filtered_img = cv2.filter2D(image_nor, cv2.CV_8UC3, g_kernel)
+        filtered_img += filtered_img
+    
+    filtered_img = filtered_img / filtered_img.max() *255
 
     # plt.imshow(image_nor)
     # plt.imshow(filtered_img)
     # cv2.imshow("edge", filtered_img)
     # cv2.waitKey(0)
+
+
     cv2.imshow(' ', cimg)
+    #cv2.waitKey(0)
+    cv2.imshow(' 1', image_nor)
+   # cv2.waitKey(0)
+    cv2.imshow(' 2', filtered_img)
     cv2.waitKey(0)
-    cv2.imshow(' ', image_nor)
-    cv2.waitKey(0)
-    cv2.imshow(' ', filtered_img)
-    cv2.waitKey(0)
-    bows.append(filtered_img)
-    h, w = g_kernel.shape[:2]
+    h, w, z = filtered_img.shape
     g_kernel = cv2.resize(g_kernel, (3*w, 3*h), interpolation=cv2.INTER_CUBIC)
 
-print(distance.hamming(bows[0].ravel(), bows[1].ravel()))
+    bows.append(filtered_img)
+
+#wyszukiwanie najlepszego dopasowania (przesywanie bitów)
+
+FiltCopy = filtered_img.copy()
+Min =[]
+
+for i in range(w):
+    
+    Min.append(distance.hamming(bows[0].ravel(), FiltCopy.ravel()))
+
+    #temp = np.zeros((h, w, z), np.uint8)
+    temp = FiltCopy[:,0,:]
+    FiltCopy[:,0,:] = FiltCopy[:,w-1,:]
+    FiltCopy[:,w-1,:] = temp
+
+print(min(Min))
 cv2.destroyAllWindows()
