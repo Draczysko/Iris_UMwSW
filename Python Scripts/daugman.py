@@ -1,13 +1,11 @@
 #Dodaje komentarz na poczatku
-import cv2
+from cv2 import cv2
 import numpy as np
 import itertools
 import math
-from typing import Tuple
 
 
-def daugman(center: Tuple[int, int], start_r: int,
-            gray_img: np.ndarray) -> Tuple[float, Tuple[Tuple[int, int], int]]:
+def daugman(center, start_r, gray_img):
     """ Function will find maximal intense radius for given center
 
         :param center:  center coordinates ``(x, y)``
@@ -29,7 +27,7 @@ def daugman(center: Tuple[int, int], start_r: int,
 
     # for every radius in range
     # we are presuming that iris will be no bigger than 1/3 of picture
-    for r in range(start_r, int(h / 2)):
+    for r in range(start_r, int(h / 3)):
         # draw circle on mask
         cv2.circle(mask, center, r, 255, 1)
         # get pixel from original image
@@ -54,10 +52,8 @@ def daugman(center: Tuple[int, int], start_r: int,
     return val, (center, idx + start_r)
 
 
-def find_iris(gray: np.ndarray,
-              start_r: int,
-              Cx: int,
-              Cy: int) -> Tuple[Tuple[int, int], int, int, int]:
+def find_iris(gray, start_r, Cx, Cy):
+
     """ Function will apply :mod:`daugman()` on every pixel
         in calculated image slice. Basically, we are calculating
         where lies set of valid circle centers.
@@ -72,13 +68,14 @@ def find_iris(gray: np.ndarray,
     # _, s = gray.shape     # ---> podmiana zmiennych
     # reduce step for better accuracy
     # 's/3' is the maximum radius of a daugman() search
-    a = range(Cx - 20, Cx + 20, 1)
-    b = range(Cy - 20, Cy + 20, 1)
+    a = range(Cx - 100, Cx + 100, 1)
+    b = range(Cy - 100, Cy + 100, 1)
     all_points = itertools.product(a, b)
 
     values = []
     coords = []
 
+     
     for p in all_points:
         tmp = daugman(p, start_r, gray)
         if tmp is not None:
