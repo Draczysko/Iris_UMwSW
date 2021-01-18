@@ -27,7 +27,7 @@ def daugman(center, start_r, gray_img):
 
     # for every radius in range
     # we are presuming that iris will be no bigger than 1/3 of picture
-    for r in range(start_r, int(h / 3)):
+    for r in range(start_r, int(h / 3.2)):
         # draw circle on mask
         cv2.circle(mask, center, r, 255, 1)
         # get pixel from original image
