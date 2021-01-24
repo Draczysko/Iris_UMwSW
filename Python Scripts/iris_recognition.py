@@ -64,8 +64,7 @@ def Search(kod,pkod):
     Data = []
     for code in Codes:
         # wczytana baza jest znów zakodowana jako RGB trzeba zamienić na czarno białe
-        th, d2 =  cv2.threshold(cv2.imread(code), 0, 255, cv2.THRESH_BINARY)
-        d2 =  cv2.cvtColor(d2, cv2.COLOR_BGR2GRAY)
+        th, d2 =  cv2.threshold(cv2.imread(code, 0), 0, 255, cv2.THRESH_BINARY)
     
         #porównywanie kodów
         Hamm.append(distance.hamming(d2.ravel(), kod.ravel()))
@@ -74,8 +73,6 @@ def Search(kod,pkod):
     Min = min(Hamm)
     
     MinM = Codes[Hamm.index(Min)]
-    cv2.imshow("_Org", kod)
-    cv2.imshow("_Found", cv2.imread(MinM))
 
     (paths,name,ext) = re.split('\\\\|\.',pkod)
     (Przed,x,y,z) = name.split('_')
@@ -100,29 +97,17 @@ def Search(kod,pkod):
 
 def img_processing(IMG):
 
-    img = cv2.medianBlur(IMG, 5)
-
+    IMG = cv2.medianBlur(IMG, 5)
 
     # Użycie adatptive threshold dla pozbycia się zbędnych wartości piskeli (binaryzacja)
-
-    th1 = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+    th1 = cv2.adaptiveThreshold(IMG, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                              cv2.THRESH_BINARY, 35, 5)
-    cv2.imshow(' ', th1)
-    #cv2.waitKey(0)
-
 
     # Zamkniecie i otwracie usuwa większąść szumu, lepiej widać zarys oka
-
     morph = cv2.morphologyEx(th1, cv2.MORPH_OPEN, cv2.getStructuringElement(2, (5, 5)))
-    cv2.imshow(' ', morph)
-    #cv2.waitKey(0)
 
     morph = cv2.morphologyEx(morph, cv2.MORPH_CLOSE, cv2.getStructuringElement(2, (3, 3)))
-    cv2.imshow(' ', morph)
-    #cv2.waitKey(0)
 
-    # Po morfologii ładnie widać zarys źrenicy, wykorzystuje to do znalezienia jej przez Hough'a. 
-    # Po odpowiednim dostosowaniu paramterów nawet ładnie działa.
     return morph
 
 
@@ -148,14 +133,14 @@ for file in files:
 
     # wczytanie zdjęcia do zmiennej
     img = cv2.imread(file, 0)
-    cimg = img.copy()
+    cimg = cv2.imread(file)
 
     # przetworzenie zdjęcia
     processed = img_processing(img.copy())
 
     # Wbudowana funkcja Hougha do znajdowania okręgów
-
-    circles = cv2.HoughCircles(processed, cv2.HOUGH_GRADIENT_ALT, 2.5, 50, param1=100, param2=0.6, minRadius=25, maxRadius=60)
+    circles = cv2.HoughCircles(processed, cv2.HOUGH_GRADIENT_ALT, 2.5, 50,
+                            param1=100, param2=0.6, minRadius=25, maxRadius=60)
    
     if circles is not None:
         radius = 0
@@ -174,7 +159,7 @@ for file in files:
             Cy = i[1].astype(int)
             start_r = 90
 
-            # będziemy szykać w kwadracie o środku Cx, Cy i pewnych wymiarach (tutaj 9x9)
+            # będziemy szukać w kwadracie o środku Cx, Cy i pewnych wymiarach (tutaj 9x9)
             # wyszukuje co 2 pixel
             a = range(Cx - 3, Cx + 3, 2)
             b = range(Cy - 3, Cy + 3, 2)
@@ -198,40 +183,29 @@ for file in files:
             r = i[2].astype(int)
 
         # tworzenie wstęgi ze znalezionej tęczówki
-        image_nor = daugman_normalizaiton(processed, 90, 360, r, radius)
-
-        # retval = cv.getGaborKernel(ksize, sigma, theta, lambd, gamma[, psi[, ktype]]    )
+        image_nor = daugman_normalizaiton(img.copy(), 90, 360, r, radius)
 
         # kilkuktrona filtracja po kącie
         As = [0,30,60,90,120,150]
 
-        for i, A in enumerate(As):
-
-            g_kernel = cv2.getGaborKernel((27, 27), 6.0, np.pi*A/180, 8.0, 0.8, 0, ktype=cv2.CV_32F)
-            filtered_img = cv2.filter2D(image_nor, cv2.CV_8UC3, g_kernel)
-            filtered_img += filtered_img
+        filtered_img = np.zeros(image_nor.shape, np.float32)
+        for A in As:
+            #cv.getGaborKernel(ksize, sigma, theta, lambd, gamma[, psi[, ktype]])
+            g_kernel = cv2.getGaborKernel((27, 27), 3.4, np.pi*A/180, 8.1, 0.9, 0, ktype=cv2.CV_32F)
+            _filtered_img = cv2.filter2D(image_nor, cv2.CV_8UC3, g_kernel)
+            cv2.imshow("_" + str(A),_filtered_img)
+            filtered_img += _filtered_img
         
         # normalizacja filtru
         filtered_img = filtered_img / filtered_img.max() *255
         filtered_img = filtered_img.astype(np.uint8)
-        # cv2.imshow("edge", filtered_img)
-        # cv2.waitKey(0)
-
-
-        cv2.imshow(' ', cimg)
-        #cv2.waitKey(0)
-        cv2.imshow(' 1', image_nor)
-        # cv2.waitKey(0)
-        cv2.imshow(' 2', filtered_img)
-        #cv2.waitKey(0)
 
         # uzyskanie z filtracji kodu dwuwymiarowego i zbinaryzowanego 
-        ret, filtered_img = cv2.threshold(filtered_img, 0, 255, cv2.THRESH_BINARY)  
         filtered_img = cv2.cvtColor(filtered_img, cv2.COLOR_BGR2GRAY)
-                
-        cv2.imshow(' 3', filtered_img)
+        filtered_img = cv2.adaptiveThreshold(filtered_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                             cv2.THRESH_BINARY, 19, 1)  
 
-        # obsługa zapisu kodów lub wyukiwania
+        # obsługa zapisu kodów lub wyszukiwania
         if Baza.count(file)==True:
             
             cv2.imwrite("Baza/kod"+array2string(np.array(files.index(file)))+".bmp",filtered_img)
@@ -245,5 +219,4 @@ for file in files:
         continue
 
 cv2.waitKey(0)
-
 cv2.destroyAllWindows()
