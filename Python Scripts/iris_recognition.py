@@ -193,7 +193,6 @@ for file in files:
             #cv.getGaborKernel(ksize, sigma, theta, lambd, gamma[, psi[, ktype]])
             g_kernel = cv2.getGaborKernel((27, 27), 3.4, np.pi*A/180, 8.1, 0.9, 0, ktype=cv2.CV_32F)
             _filtered_img = cv2.filter2D(image_nor, cv2.CV_8UC3, g_kernel)
-            cv2.imshow("_" + str(A),_filtered_img)
             filtered_img += _filtered_img
         
         # normalizacja filtru
